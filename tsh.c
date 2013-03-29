@@ -314,13 +314,18 @@ void do_bgfg(char **argv)
 	
 	if(job != NULL){
 		if(!strcmp(argv[0],"bg")){
-			kill(job->pid,SIGCONT);	
+			job->state = BG;
+			kill(job->pid,SIGCONT);
 		}else if(!strcmp(argv[0],"fg")){
+			if(job->state == ST)
+				kill(job->pid,SIGCONT);
+			job->state = FG;
 			waitpid(job->pid,NULL,0);
 		}
 	}else{
-		unix_error("No such job exist!");
+		printf("No such job exist!\n");
 	}	
+return ;
 }
 
 /* 
@@ -374,7 +379,6 @@ void sigchld_handler(int sig)
 void sigint_handler(int sig) 
 {
 	int fg_pid = fgpid(jobs);
-	printf("Kill pid:%d",fg_pid);
 	kill(-fg_pid,SIGINT);
 	deletejob(jobs,fg_pid);	
 	return;
@@ -388,10 +392,9 @@ void sigint_handler(int sig)
 void sigtstp_handler(int sig) 
 {
 	int fg_pid = fgpid(jobs);
-	printf("Pid stop:%d\n",fg_pid);
+//	printf("Pid stop:%d\n",fg_pid);
 	kill(fg_pid,SIGKILL);
 	struct job_t *job = getjobpid(jobs,fg_pid); 
-	//printf("\n%d\n",job->pid);
 	job->state = ST;
 }	
 
