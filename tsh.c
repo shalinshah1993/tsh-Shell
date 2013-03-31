@@ -130,15 +130,7 @@ int main(int argc, char **argv)
     /* Execute the shell's read/eval loop */
     while (1) {
 
-
-	//printf("Lets see whether ahiya agad ave bhi che ke nai !!");
-	/* Read command line */
-//	that our
-// * background children don't receive SIGINT (SIGTSTP) from the kernel
-// * when we type ctrl-c (ctrl-z) at the keyboard.  
-//that our
-// * background children don't receive SIGINT (SIGTSTP) from the kernel
-// * when we type ctrl-c (ctrl-z) at the keyboard.  
+	/* Read command line */  
 	if (emit_prompt) {
 	    printf("%s", prompt);
 	    fflush(stdout);
@@ -173,15 +165,10 @@ int main(int argc, char **argv)
 void eval(char *cmdline) 
 {
 	char *argv[MAXARGS];
-	int bg;
-//	i++;
+	int bg,i;
 	pid_t  pid;
+	struct job_t *job;
 	bg = parseline(cmdline,argv);
-//	printf("i = %d Process state :- %d\n",i,bg);
-//	if(!bg)
-//		jobs[i].state = FG;
-//	else
-//		jobs[i].state = BG;
 
 	if(argv[0] == NULL){
 		return;
@@ -195,16 +182,15 @@ void eval(char *cmdline)
 				exit(0);
 			}
 		}else{
-			printf("\nPid created:%d\n",pid);
 			if(!bg){
 				addjob(jobs, pid , FG , cmdline);
 				int status;
-				if(waitpid(pid, &status, 0) < 0)
-					unix_error("waitfg:waitpid error\n");
-				deletejob(jobs,pid);			
+				if((i = waitpid(pid,&status,WUNTRACED)) < 0)
+					unix_error("waitfg:waitpid error\n");		
 			}else{
 				addjob(jobs, pid , BG , cmdline);
-				printf("%d %s\n",pid,cmdline);
+				job = getjobpid(jobs,pid);
+				printf("[%d] (%d) %s",job->jid,job->pid,job->cmdline);
 			}
 		}
 	}    	
@@ -294,8 +280,23 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-	char c = argv[1][0];
+	char c;
 	int jid,units,tens,pid;
+	
+	//Error checking for blank arguments
+	if(argv[1] == NULL){
+		printf("%s requires PID or jobid argument\n",argv[0]);
+		return;
+	}else{
+		c = argv[1][0];
+	}	
+
+	//Error checking for whether an JID or PID is entered
+	if(c > 65){
+		printf("%s should be PID or jobid",argv[0]);
+		return;
+	}
+
 	if(c == '%'){
 		tens = argv[1][1];
 		units = argv[1][2];
@@ -303,27 +304,28 @@ void do_bgfg(char **argv)
 			jid = tens-48;
 		else
 			jid = (units-48) + 10*(tens - 48);
-		printf("%d",jid);	
 	}else{
 		pid = atoi(argv[1]);
-		printf("%d",pid);
 		jid = pid2jid(pid);
 	}
 	
-	struct job_t *job = getjobjid(jobs,jid);	
+	struct job_t *job = getjobjid(jobs,jid);
+	pid = job->pid;	
 	
 	if(job != NULL){
 		if(!strcmp(argv[0],"bg")){
 			job->state = BG;
 			kill(job->pid,SIGCONT);
+			printf("[%d] (%d) %s\n",jid,pid,job->cmdline);
 		}else if(!strcmp(argv[0],"fg")){
 			if(job->state == ST)
 				kill(job->pid,SIGCONT);
 			job->state = FG;
-			waitpid(job->pid,NULL,0);
+			waitpid(job->pid,NULL,WUNTRACED);
+		//	printf("[%d] (%d) %s\n",jid,pid,job->cmdline);
 		}
 	}else{
-		printf("No such job exist!\n");
+		printf("[%s]: No such job/Process exist!\n",argv[1]);
 	}	
 return ;
 }
@@ -364,8 +366,9 @@ void sigchld_handler(int sig)
 //	printf("ctrl-z is presed so it came here!!\n");
 	int i ;
 	for(i = 0 ; i < MAXJOBS ; i++){
-		if(jobs[i].state == ST){
-			waitpid(jobs[i].pid,NULL,0);
+		if(jobs[i].state == FG){
+			deletejob(jobs,jobs[i].pid);
+			//waitpid(jobs[i].pid,NULL,0);
 		}
 	}			
 	return;
@@ -379,8 +382,10 @@ void sigchld_handler(int sig)
 void sigint_handler(int sig) 
 {
 	int fg_pid = fgpid(jobs);
+	int fg_jid = pid2jid(fg_pid);
 	kill(-fg_pid,SIGINT);
-	deletejob(jobs,fg_pid);	
+	deletejob(jobs,fg_pid);
+	printf("Job [%d] (%d) terminated by signal 2\n",fg_jid,fg_pid);	
 	return;
 }
 
@@ -392,10 +397,12 @@ void sigint_handler(int sig)
 void sigtstp_handler(int sig) 
 {
 	int fg_pid = fgpid(jobs);
-//	printf("Pid stop:%d\n",fg_pid);
-	kill(fg_pid,SIGKILL);
+	int fg_jid = pid2jid(fg_pid);
+	kill(fg_pid,SIGTSTP);
 	struct job_t *job = getjobpid(jobs,fg_pid); 
 	job->state = ST;
+	printf("Job [%d] (%d) stopped by signal %d\n",fg_jid,fg_pid,SIGTSTP);
+	return;
 }	
 
 

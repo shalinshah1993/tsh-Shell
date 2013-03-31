@@ -1,4 +1,4 @@
-make[1]: Entering directory `/afs/cs.cmu.edu/project/ics/im/labs/shlab/src'
+  make[1]: Entering directory `/afs/cs.cmu.edu/project/ics/im/labs/shlab/src'
 ./sdriver.pl -t trace01.txt -s ./tsh -a "-p"
 #
 # trace01.txt - Properly terminate on EOF.
@@ -205,7 +205,7 @@ tsh> jobs
 [1] (26345) Running ./myspin 3 &
 [2] (26347) Running ./myspin 4 &
 tsh> fg %1
-tsh> quit
+tsh> qui	t
 ./sdriver.pl -t trace16.txt -s ./tsh -a "-p"
 #
 # trace16.txt - Tests whether the shell can handle SIGTSTP and SIGINT
