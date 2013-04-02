@@ -176,6 +176,7 @@ void eval(char *cmdline)
 
 	if(!builtin_cmd(argv)){
 		if((pid = fork()) == 0){
+			//Process gpid is changed so that only foreground process is closed
 			setpgid(0,0);
 			if(execve(argv[0],argv,environ) < 0){
 				printf("%s : Command not found\n",argv[0]);
@@ -187,7 +188,7 @@ void eval(char *cmdline)
 				int status;
 				if((i = waitpid(pid,&status,WUNTRACED)) < 0)
 					unix_error("waitfg:waitpid error\n");		
-			}else if(bg){
+			}else{
 				addjob(jobs, pid , BG , cmdline);
 				job = getjobpid(jobs,pid);
 				printf("[%d] (%d) %s",job->jid,job->pid,job->cmdline);
@@ -370,7 +371,7 @@ void sigchld_handler(int sig)
 	//printf("ctrl-z is presed so it came here!!\n");
 	int i,pid,status;
 	pid = waitpid(-1,&status,WNOHANG);
-	printf("Process stopped by the signal %d",sig);
+//	printf("Process stopped by the signal %d",sig);
 	//i = 0;
 //	printf("Wait pid returned : %d ",pid);
 	//if(pid == -1){
@@ -395,7 +396,7 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-	printf("Inside SIGINT");
+//	printf("Inside SIGINT");
 	int fg_pid = fgpid(jobs);
 	int fg_jid = pid2jid(fg_pid);
 	kill(-fg_pid,SIGINT);
