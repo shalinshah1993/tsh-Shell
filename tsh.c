@@ -178,7 +178,7 @@ void eval(char *cmdline)
 		if((pid = fork()) == 0){
 			setpgid(0,0);
 			if(execve(argv[0],argv,environ) < 0){
-				printf("%s Command not found\n",argv[0]);
+				printf("%s : Command not found\n",argv[0]);
 				exit(0);
 			}
 		}else{
@@ -187,7 +187,7 @@ void eval(char *cmdline)
 				int status;
 				if((i = waitpid(pid,&status,WUNTRACED)) < 0)
 					unix_error("waitfg:waitpid error\n");		
-			}else{
+			}else if(bg){
 				addjob(jobs, pid , BG , cmdline);
 				job = getjobpid(jobs,pid);
 				printf("[%d] (%d) %s",job->jid,job->pid,job->cmdline);
@@ -321,7 +321,8 @@ void do_bgfg(char **argv)
 			if(job->state == ST)
 				kill(job->pid,SIGCONT);
 			job->state = FG;
-			waitpid(job->pid,NULL,WUNTRACED);
+			//waitpid(job->pid,NULL,WUNTRACED);
+			pause();
 		//	printf("[%d] (%d) %s\n",jid,pid,job->cmdline);
 		}
 	}else{
@@ -335,7 +336,7 @@ return ;
  */
 void waitfg(pid_t pid)
 {
-	sigset_t sSet;
+/*	sigset_t sSet;
 	struct job_t *job = getjobpid(jobs,pid);
 	sigemptyset(&sSet);
 	sigaddset(&sSet,SIGINT);
@@ -347,6 +348,9 @@ void waitfg(pid_t pid)
 	while(job->state == FG){		
 	}
 	sigprocmask(SIG_UNBLOCK,&sSet,NULL);
+*/
+	while(pid == waitpid(-1,NULL,0))
+		sleep(0);
 	return;
 }
 
@@ -363,14 +367,24 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-//	printf("ctrl-z is presed so it came here!!\n");
-	int i ;
-	for(i = 0 ; i < MAXJOBS ; i++){
-		if(jobs[i].state == FG){
-			deletejob(jobs,jobs[i].pid);
-			//waitpid(jobs[i].pid,NULL,0);
-		}
-	}			
+	//printf("ctrl-z is presed so it came here!!\n");
+	int i,pid,status;
+	pid = waitpid(-1,&status,WNOHANG);
+	printf("Process stopped by the signal %d",sig);
+	//i = 0;
+//	printf("Wait pid returned : %d ",pid);
+	//if(pid == -1){
+	//Foreground job has terminated this means
+		int fpid;
+		fpid = fgpid(jobs);
+		if(fpid != 0)
+			deletejob(jobs,fpid);							
+//	}else{
+	//Background job has terminated 
+	if(pid > 0)
+		deletejob(jobs,pid);
+//`	}
+
 	return;
 }
 
@@ -381,11 +395,12 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+	printf("Inside SIGINT");
 	int fg_pid = fgpid(jobs);
 	int fg_jid = pid2jid(fg_pid);
 	kill(-fg_pid,SIGINT);
 	deletejob(jobs,fg_pid);
-	printf("Job [%d] (%d) terminated by signal 2\n",fg_jid,fg_pid);	
+	printf("Job [%d] (%d) terminated by signal %d\n",fg_jid,fg_pid,SIGINT);	
 	return;
 }
 
