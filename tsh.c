@@ -336,7 +336,7 @@ return ;
 void waitfg(pid_t pid)
 {
 	//Keep on running unless no fgjob is left
-	while(pid == fgpid(jobs)){}
+	while(pid == fgpid(jobs)){sleep(1);}
 	return;
 }
 
@@ -358,6 +358,7 @@ void sigchld_handler(int sig)
 
 	//Here wait is used so that we can reap all children which are terminated but not the ones which are ruuning in background
 	pid = waitpid(fgpid(jobs), &status, WNOHANG|WUNTRACED);
+	//while(pid= waitpid(-1,&status,WNOHANG|WUNTRACED) > 0){
 	if (WIFSTOPPED(status)){  
 		sigtstp_handler(20);  
 	}  
